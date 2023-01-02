@@ -1,0 +1,10 @@
+.screen {
+  display: flex;
+  align-items: center;
+  flex-direction: column;
+  height: 100vh;
+  .form-input {
+    width: 700px;
+    margin-top: 200px;
+  }
+}
