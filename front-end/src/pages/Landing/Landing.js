@@ -5,10 +5,12 @@ import {
   Col,
   Row,
   Typography,
+  Descriptions,
   Button,
   message,
   Space,
   Layout,
+  Radio,
   Select,
   Spin,
 } from 'antd';
@@ -17,212 +19,108 @@ import { getData } from '../../api/getData';
 import './index.scss';
 
 const { Option } = Select;
-const layout = {
-  labelCol: {
-    span: 8,
-  },
-  wrapperCol: {
-    span: 16,
-  },
-};
-const tailLayout = {
-  wrapperCol: {
-    offset: 8,
-    span: 16,
-  },
-};
 
 const { Title } = Typography;
 
 export const Landing = () => {
   const [form] = Form.useForm();
-  const [info, setInfo] = useState(null);
-  const [reportId, setReportId] = useState(null);
-  const [date, setDate] = useState(null);
-  const [time, setTime] = useState(null);
-  const [timeSelected, setTimeSelected] = useState(null);
-  const [modelSelected, setModelSelected] = useState(null);
+  const [dataQues, setDataQues] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [dataGen, setDataGen] = useState(null);
+  const [dataResult, setDataResult] = useState(null);
 
   useEffect(() => {
     getInfo();
   }, []);
 
   const getInfo = async () => {
-    const data = await getData.getInfo();
-    setInfo(data?.data);
-  };
-
-  const _getDateByReportId = async () => {
-    const reportId = form.getFieldValue('reportId');
-    const date = await getData.getDateByReportId({
-      reportId: reportId,
-    });
-    form.setFieldsValue({ model: null, time: null, date: null });
-    setDate(date?.data?.date);
-    setReportId(reportId);
-  };
-
-  const _getTimeByReportId = async () => {
-    const date = form.getFieldValue('date');
-    const time = await getData.getTimeByDate({
-      reportId: reportId,
-      date: date,
-    });
-    form.setFieldsValue({ model: null, time: null });
-    setTime(time?.data?.time);
-  };
-
-  const handleTimeSelected = () => {
-    const time = form.getFieldValue('time');
-    form.setFieldsValue({ model: null });
-    setTimeSelected(time);
-  };
-
-  const handleModelSelected = () => {
-    const model = form.getFieldValue('model');
-    setModelSelected(model);
+    const data = await getData.getQues();
+    setDataQues(data);
   };
 
   const submitForm = async (formData) => {
     setLoading(true);
-    const { reportId, model, date, time } = formData;
-    const query = {
-      reportId,
-      timestamp: `${date} ${time < 10 ? '0' + time : time}:00:00`,
-    };
-    let data;
-    if (model === 'Decision Tree Regressor') {
-      data = await getData.decisionTreeRegressor(query);
-    } else if (model === 'Lasso Regressor') {
-      data = await getData.lassoRegressor(query);
-    } else if (model === 'KNN Classification') {
-      data = await getData.knnClassification(query);
-    }
-    setDataGen(data);
+    const query = dataQues.map((item, index) => ({
+      weight: item?.QuestionWeight,
+      value: Object.values(formData)[index],
+    }));
+    const data = await getData.postForm(query);
+    setDataResult(data);
     setLoading(false);
   };
 
   return (
     <>
       <div className="screen">
-        {info?.length ? (
+        {dataQues?.length ? (
           <>
             <Form
               className="form-input"
               labelAlign="left"
               form={form}
-              {...layout}
-              layout="horizontal"
+              layout="vertical"
               onFinish={submitForm}>
-              <Form.Item
-                label="Chọn địa điểm"
-                name="reportId"
-                rules={[
-                  {
-                    required: true,
-                    message: 'Please input your username!',
-                  },
-                ]}>
-                <Select
-                  showSearch
-                  onSelect={_getDateByReportId}
-                  filterOption={(input, option) =>
-                    (option?.label ?? '')
-                      .toLowerCase()
-                      .includes(input.toLowerCase())
-                  }>
-                  {info?.map((item, key) => (
-                    <Option
-                      key={key}
-                      value={item?.REPORT_ID}
-                      label={`${item?.POINT_1_STREET} - ${item?.POINT_2_STREET}`}>
-                      {item?.POINT_1_STREET} - {item?.POINT_2_STREET}
-                    </Option>
-                  ))}
-                </Select>
-              </Form.Item>
-              {date && (
-                <Form.Item
-                  label="Chọn ngày"
-                  name="date"
-                  rules={[
-                    {
-                      required: true,
-                      message: 'Please input your username!',
-                    },
-                  ]}>
-                  <Select onSelect={_getTimeByReportId}>
-                    {Object.values(date)?.map((item, key) => (
-                      <Option key={key} value={item} label={item}>
-                        {item}
-                      </Option>
-                    ))}
-                  </Select>
-                </Form.Item>
-              )}
-              {time && (
-                <Form.Item
-                  label="Chọn giờ"
-                  name="time"
-                  rules={[
-                    {
-                      required: true,
-                      message: 'Please input your username!',
-                    },
-                  ]}>
-                  <Select onSelect={handleTimeSelected}>
-                    {Object.values(time)?.map((item, key) => (
-                      <Option key={key} value={item} label={item}>
-                        {item}
-                      </Option>
-                    ))}
-                  </Select>
-                </Form.Item>
-              )}
-
-              {timeSelected && (
-                <Form.Item
-                  label="Chọn Model"
-                  name="model"
-                  rules={[
-                    {
-                      required: true,
-                      message: 'Please input your username!',
-                    },
-                  ]}>
-                  <Select onSelect={handleModelSelected}>
-                    <Option value="Decision Tree Regressor">
-                      Decision Tree Regressor
-                    </Option>
-                    <Option value="Lasso Regressor">Lasso Regressor</Option>
-                    <Option value="KNN Classification">
-                      KNN Classification
-                    </Option>
-                  </Select>
-                </Form.Item>
-              )}
-              {modelSelected && (
+              <Title level={1} align="center">
+                Hệ thống dự đoán ngành học dựa trên khảo sát
+              </Title>
+              <br />
+              <br />
+              <Row>
+                {dataQues.map((item, index) => (
+                  <Col span={12} key={item?.ID} style={{ padding: 12 }}>
+                    <Form.Item
+                      label={index + 1 + ': ' + item?.QuestionContent}
+                      name={item?.ID}
+                      rules={[
+                        {
+                          required: true,
+                          message: 'Vui lòng chọn câu trả lời!',
+                        },
+                      ]}>
+                      <Radio.Group defaultValue={null}>
+                        <Space direction="vertical">
+                          {item.AnsA !== 'NULL' && (
+                            <Radio value={item.PersenA}> {item.AnsA} </Radio>
+                          )}
+                          {item.AnsB !== 'NULL' && (
+                            <Radio value={item.PersenB}> {item.AnsB} </Radio>
+                          )}
+                          {item.AnsC !== 'NULL' && (
+                            <Radio value={item.PersenC}> {item.AnsC} </Radio>
+                          )}
+                        </Space>
+                      </Radio.Group>
+                    </Form.Item>
+                  </Col>
+                ))}
+              </Row>
+              <Form.Item>
                 <Form.Item
                   wrapperCol={{
-                    offset: 12,
-                    span: 12,
+                    sm: {
+                      span: 12,
+                      offset: 11,
+                    },
                   }}>
-                  <Button type="primary" htmlType="submit" loading={loading}>
-                    Dự đoán
+                  <Button type="primary" loading={loading} htmlType="submit">
+                    Submit
                   </Button>
                 </Form.Item>
-              )}
+              </Form.Item>
             </Form>
-            {dataGen && (
-              <>
-                <Title level={3}>Dữ liệu thật: {dataGen?.actual}</Title>
-                <Title level={3}>Dữ liệu dự đoán: {dataGen?.predict}</Title>
-                <Title level={3}>
-                  Tỉ lệ: {dataGen?.predict / dataGen?.actual}
-                </Title>
-              </>
+            {dataResult && (
+              <Descriptions
+                style={{
+                  marginBottom: 200,
+                }}
+                title="Dự đoán nhóm ngành phù hợp với bạn là:"
+                bordered>
+                <Descriptions.Item label="Tên nhóm ngàng:" span={24}>
+                  {dataResult?.type}
+                </Descriptions.Item>
+                <Descriptions.Item label="Các trường liên quan:" span={24}>
+                  {dataResult?.content}
+                </Descriptions.Item>
+              </Descriptions>
             )}
           </>
         ) : (

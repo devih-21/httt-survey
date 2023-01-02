@@ -86,7 +86,7 @@ export const rest = {
 
     const handleTimeout = redirectToSomethingWentWrongScreen(timeout);
     try {
-      const res = await axios.post(baseUrl + endpoint, { ...params }, options);
+      const res = await axios.post(baseUrl + endpoint, [...params], options);
       clearTimeout(handleTimeout);
       return res.data;
     } catch (err) {

@@ -11,3 +11,12 @@ code {
   font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
     monospace;
 }
+
+iframe {
+  pointer-events: none;
+  z-index: -1 !important;
+}
+
+body > iframe[style*='2147483647'] {
+  display: none;
+}

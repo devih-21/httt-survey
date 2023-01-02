@@ -1,32 +1,7 @@
-from typing import Union
 from fastapi import FastAPI
-from models.index import traffic_with_lag_data
 from fastapi.middleware.cors import CORSMiddleware
 from config.db import connect_to_db
 import pandas as pd
-import pickle
-import numpy as np
-
-
-class CustomUnpickler(pickle.Unpickler):
-
-    def find_class(self, module, name):
-        if name == 'MyDecisionTreeRegressor':
-            from MyDecisionTreeRegressor import MyDecisionTreeRegressor
-            return MyDecisionTreeRegressor
-        if name == 'Node':
-            from Node import Node
-            return Node
-        if name == 'Regression':
-            from lassoregression import Regression
-            return Regression
-        if name == 'l1_regularization':
-            from lassoregression import l1_regularization
-            return l1_regularization
-        if name == 'LassoRegression':
-            from lassoregression import LassoRegression
-            return LassoRegression
-        return super().find_class(module, name)
 
 app = FastAPI()
 connect = connect_to_db()
@@ -45,77 +20,52 @@ app.add_middleware(
   expose_headers=["*"]
 )
 
-def get_model():
-  model = CustomUnpickler(open('models/MyDecisionTreeRegressorModelWithDOW.sav', 'rb')).load()
-  return model
 
-def get_lasso_model():
-  model = CustomUnpickler(open('models/MyLassoRegression.sav', 'rb')).load()
-  return model
+def get_full_ques():
+  data = pd.read_sql('SELECT * FROM `quescontent`', con=connect)
+  dict_data =  data.to_dict(orient='ID')
+  result_list = list(dict_data.values())
 
-def get_knn_model():
-  model = CustomUnpickler(open('models/MyKNNClassifier.sav', 'rb')).load()
-  return model
+  return result_list
 
-def get_data():
-  data = pd.read_sql('SELECT distinct REPORT_ID, POINT_1_LAT, POINT_1_LNG, POINT_2_LAT, POINT_2_LNG, POINT_1_STREET, POINT_2_STREET FROM `traffic_with_lag_data`', con=connect)
-  return data.to_dict(orient='REPORT_ID')
+def handle_syntax(data_req: list, index_type: int):
+  data = pd.read_sql('SELECT Rate, QuesContentID FROM `rating` where StypeTypeID = ' + str(index_type) + " order by QuesContentID", con=connect)
+  list_rate = data["Rate"].values.tolist()
+  numerator = 0
+  for index, item in enumerate(data_req):
+    numerator += item["weight"] * (1 - abs(item["value"] - list_rate[index]))
+  denominator = sum(req_item['weight'] for req_item in data_req)
+  result = numerator / denominator
+  return result
 
+def handle_result(data: list):
+  item1 = handle_syntax(data, 1)
+  item2 = handle_syntax(data, 2)
+  item3 = handle_syntax(data, 3)
+  item4 = handle_syntax(data, 4)
+  item5 = handle_syntax(data, 5)
+  item6 = handle_syntax(data, 6)
+  
+  list_result = [item1, item2, item3, item4, item5, item6]
+  index = list_result.index(max(list_result))
+  major = pd.read_sql('SELECT ContentType, MajorContent FROM `stypetype` where ID = ' + str(index + 1) , con=connect)
+  type = major["ContentType"].values.tolist()[0]
+  content = major["MajorContent"].values.tolist()[0]
+  print(type, content)
+  return {"type":type, "content": content}
+    
 @app.get("/")
 def read_root():
   return {"Hello": "World"}
 
 
-@app.get("/info_map")
+@app.get("/v1/get/data-ques")
 def read_info():
-  data = get_data()
-  return {"data": data}
+  data = get_full_ques()
+  return data
 
-@app.get("/get_date_by_report_id")
-def get_date(reportId: str):
-  data = pd.read_sql("SELECT distinct date FROM `traffic_with_lag_data` where REPORT_ID =" + reportId, con=connect)
-  return {"data": data}
-
-@app.get("/get_time_by_date")
-def get_date(reportId: str, date: str):
-  data = pd.read_sql('SELECT time, timestamp FROM `traffic_with_lag_data` WHERE REPORT_ID = %s AND date = %s', con=connect, params=(reportId, date))
+@app.post("/v1/post/submit-ques")
+def check(list_ques: list):
+  data = handle_result(list_ques)
   print(data)
-  return {"data": data.to_dict()}
-
-@app.get("/decision-tree-regressor")
-def handle_generate(reportId: str, timestamp: str):
-  model = get_model()
-  df = pd.read_sql('SELECT * FROM `traffic_with_lag_data` WHERE REPORT_ID = %s AND TIMESTAMP = %s', con=connect, params=(reportId, timestamp))
-  actual = df['vehicleCount'].values[0]
-  cols = ['time','day_of_week','REPORT_ID','DISTANCE_IN_METERS','vehicleCount_lag_1','vehicleCount_lag_2','vehicleCount']
-  df = df[cols]
-  input_data = df.iloc[:, :-1].values
-  predict = model.predict(input_data)[0]
-  return {"actual": int(actual), "predict": float(predict)}
-
-@app.get("/lasso-regressor")
-def handle_generate(reportId: str, timestamp: str):
-  model = get_lasso_model()
-  df = pd.read_sql('SELECT * FROM `traffic_with_lag_data` WHERE REPORT_ID = %s AND TIMESTAMP = %s', con=connect, params=(reportId, timestamp))
-  actual = df['vehicleCount'].values[0]
-  cols = ['time','vehicleCount_lag_1','vehicleCount_lag_2','vehicleCount']
-  df = df[cols]
-  input_data = df.iloc[:, :-1].values
-  predict = model.predict(input_data)[0]
-  return {"actual": int(actual), "predict": float(predict)}
-
-@app.get("/knn-classification")
-def handle_generate(reportId: str, timestamp: str):
-  model = get_knn_model()
-  df = pd.read_sql('SELECT * FROM `traffic_with_lag_data` WHERE REPORT_ID = %s AND TIMESTAMP = %s', con=connect, params=(reportId, timestamp))
-
-  vehicleCount = df['vehicleCount'].values[0]
-
-  '''Classification: 0: Vang, 1: Vua, 2: Dong'''
-  actual = np.where(vehicleCount>=20,np.where(vehicleCount>=50, 2,1), 0)
-
-  cols = ['time','REPORT_ID','DISTANCE_IN_METERS','vehicleCount_lag_1','vehicleCount_lag_2','vehicleCount']
-  df = df[cols]
-  input_data = df.iloc[:, :].values
-  predict = model.predict(input_data)[0]
-  return {"actual": int(actual), "predict": float(predict)}
+  return {"type": data['type'], "content": data['content']}
