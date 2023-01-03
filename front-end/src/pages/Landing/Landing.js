@@ -41,7 +41,12 @@ export const Landing = () => {
     setLoading(true);
     const query = dataQues.map((item, index) => ({
       weight: item?.QuestionWeight,
-      value: Object.values(formData)[index],
+      value: parseFloat(
+        Object.values(formData)
+          [index].replace('AnsA', '')
+          .replace('AnsB', '')
+          .replace('AnsC', ''),
+      ),
     }));
     const data = await getData.postForm(query);
     setDataResult(data);
@@ -79,13 +84,19 @@ export const Landing = () => {
                       <Radio.Group defaultValue={null}>
                         <Space direction="vertical">
                           {item.AnsA !== 'NULL' && (
-                            <Radio value={item.PersenA}> {item.AnsA} </Radio>
+                            <Radio value={item.PersenA + 'AnsA'}>
+                              {item.AnsA}
+                            </Radio>
                           )}
                           {item.AnsB !== 'NULL' && (
-                            <Radio value={item.PersenB}> {item.AnsB} </Radio>
+                            <Radio value={item.PersenB + 'AnsB'}>
+                              {item.AnsB}
+                            </Radio>
                           )}
                           {item.AnsC !== 'NULL' && (
-                            <Radio value={item.PersenC}> {item.AnsC} </Radio>
+                            <Radio value={item.PersenC + 'AnsC'}>
+                              {item.AnsC}
+                            </Radio>
                           )}
                         </Space>
                       </Radio.Group>
